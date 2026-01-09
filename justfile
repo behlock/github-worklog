@@ -1,0 +1,62 @@
+# Default recipe - show available commands
+default:
+    @just --list
+
+# Build release binary
+build:
+    cargo build --release
+
+# Run tests
+test:
+    cargo test
+
+# Preview today's recap without saving
+preview:
+    ./target/release/github-daily-recap today --preview
+
+# Generate today's recap
+today:
+    ./target/release/github-daily-recap today
+
+# Generate recap for a specific date (usage: just generate 2026-01-07)
+generate date:
+    ./target/release/github-daily-recap generate --date {{date}}
+
+# Generate recaps for the past week
+week:
+    #!/usr/bin/env bash
+    for i in {0..6}; do
+        ./target/release/github-daily-recap generate --date $(date -v-${i}d +%Y-%m-%d)
+    done
+
+# Show current configuration
+config:
+    ./target/release/github-daily-recap config
+
+# Show setup instructions
+init:
+    ./target/release/github-daily-recap init
+
+# Install the daily scheduler (macOS launchd)
+install-scheduler:
+    ./scripts/install-scheduler.sh
+
+# Uninstall the daily scheduler
+uninstall-scheduler:
+    launchctl unload ~/Library/LaunchAgents/com.github-daily-recap.plist
+
+# Check if scheduler is running
+scheduler-status:
+    @launchctl list | grep daily-recap || echo "Scheduler not running"
+
+# View scheduler logs
+logs:
+    @cat ~/.local/log/daily-recap-stdout.log 2>/dev/null || echo "No logs found"
+
+# Run the cron script manually (generates + commits + pushes)
+cron:
+    ./scripts/daily-recap-cron.sh
+
+# Clean build artifacts
+clean:
+    cargo clean

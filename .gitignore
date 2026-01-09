@@ -1,0 +1,7 @@
+/target
+
+# Environment variables
+.env
+
+# Daily recap file (local copy)
+daily-recap.md
