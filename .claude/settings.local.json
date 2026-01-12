@@ -5,7 +5,9 @@
       "Bash(cargo test:*)",
       "Bash(just:*)",
       "Bash(cargo clean:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "WebSearch",
+      "Bash(./target/release/github-daily-recap:*)"
     ]
   }
 }

@@ -9,4 +9,4 @@ pub use config::Settings;
 pub use error::{RecapError, Result};
 pub use github::GitHubClient;
 pub use recap::{append_to_file, RecapGenerator};
-pub use summarizer::Summarizer;
+pub use summarizer::{summarize, Provider};

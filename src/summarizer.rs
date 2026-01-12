@@ -2,122 +2,179 @@ use crate::github::Activity;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
-struct ClaudeRequest {
-    model: String,
-    max_tokens: u32,
-    messages: Vec<Message>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Provider {
+    #[default]
+    Claude,
+    Ollama,
 }
 
-#[derive(Debug, Serialize)]
-struct Message {
-    role: String,
-    content: String,
+impl std::fmt::Display for Provider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Provider::Claude => "claude",
+                Provider::Ollama => "ollama",
+            }
+        )
+    }
 }
 
-#[derive(Debug, Deserialize)]
-struct ClaudeResponse {
-    content: Vec<ContentBlock>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ContentBlock {
-    text: String,
-}
-
-pub struct Summarizer {
-    client: Client,
-    api_key: String,
-}
-
-impl Summarizer {
-    pub fn new(api_key: &str) -> Self {
-        Self {
-            client: Client::new(),
-            api_key: api_key.to_string(),
+impl std::str::FromStr for Provider {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "claude" => Ok(Provider::Claude),
+            "ollama" => Ok(Provider::Ollama),
+            _ => Err(format!("unknown provider: {}", s)),
         }
     }
+}
 
-    pub async fn summarize_activities(&self, activities: &[Activity]) -> Result<String, String> {
-        if activities.is_empty() {
-            return Ok("No activities to summarize.".to_string());
+/// Summarize activities using the configured provider (with fallback to Claude if Ollama fails)
+pub async fn summarize(
+    activities: &[Activity],
+    provider: Provider,
+    anthropic_key: Option<&str>,
+    ollama_url: &str,
+    ollama_model: &str,
+) -> Option<String> {
+    let prompt = build_prompt(activities);
+    let client = Client::new();
+
+    match provider {
+        Provider::Ollama => {
+            eprintln!("Summarizing with Ollama ({})...", ollama_model);
+            match call_ollama(&client, ollama_url, ollama_model, &prompt).await {
+                Ok(s) => return Some(s),
+                Err(e) => eprintln!("Ollama failed: {}", e),
+            }
+            // Fallback to Claude
+            if let Some(key) = anthropic_key {
+                eprintln!("Falling back to Claude...");
+                call_claude(&client, key, &prompt).await.ok()
+            } else {
+                None
+            }
         }
-
-        // Build a description of all commits for Claude
-        let mut commits_text = String::new();
-        for activity in activities {
-            let repo = format!(
-                "{}/{}",
-                activity.commit.repository.owner, activity.commit.repository.name
-            );
-            let message = &activity.commit.message;
-            let pr_info = match &activity.associated_pr {
-                Some(pr) => format!(" (PR #{}: {})", pr.number, pr.title),
-                None => String::new(),
-            };
-            commits_text.push_str(&format!(
-                "- [{}] {}{}\n",
-                repo,
-                message.lines().next().unwrap_or(""),
-                pr_info
-            ));
+        Provider::Claude => {
+            if let Some(key) = anthropic_key {
+                eprintln!("Summarizing with Claude...");
+                call_claude(&client, key, &prompt).await.ok()
+            } else {
+                None
+            }
         }
+    }
+}
 
-        let prompt = format!(
-            r#"You are summarizing a developer's daily GitHub activity for their personal work log.
+async fn call_claude(client: &Client, api_key: &str, prompt: &str) -> Result<String, String> {
+    #[derive(Serialize)]
+    struct Req {
+        model: &'static str,
+        max_tokens: u32,
+        messages: Vec<Msg>,
+    }
+    #[derive(Serialize)]
+    struct Msg {
+        role: &'static str,
+        content: String,
+    }
+    #[derive(Deserialize)]
+    struct Resp {
+        content: Vec<Block>,
+    }
+    #[derive(Deserialize)]
+    struct Block {
+        text: String,
+    }
 
-Here are the commits and PRs from today:
-
-{}
-
-Please create a concise summary with 2-5 bullet points that:
-1. Group related commits into meaningful features or project areas
-2. Use clear, action-oriented language (e.g., "Implemented...", "Fixed...", "Updated...")
-3. Focus on WHAT was accomplished, not individual commit messages
-4. Mention the project/repo name when relevant
-5. Skip merge commits and focus on actual work done
-
-Format: Return ONLY the bullet points, one per line, starting with "- ". No headers or extra text."#,
-            commits_text
-        );
-
-        let request = ClaudeRequest {
-            model: "claude-sonnet-4-20250514".to_string(),
+    let resp = client
+        .post("https://api.anthropic.com/v1/messages")
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .json(&Req {
+            model: "claude-sonnet-4-20250514",
             max_tokens: 500,
-            messages: vec![Message {
-                role: "user".to_string(),
-                content: prompt,
+            messages: vec![Msg {
+                role: "user",
+                content: prompt.to_string(),
             }],
-        };
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
 
-        let response = self
-            .client
-            .post("https://api.anthropic.com/v1/messages")
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .map_err(|e| format!("HTTP error: {}", e))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!("Claude API error {}: {}", status, body));
-        }
-
-        let claude_response: ClaudeResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("JSON parse error: {}", e))?;
-
-        let summary = claude_response
-            .content
-            .first()
-            .map(|c| c.text.clone())
-            .unwrap_or_else(|| "No summary generated.".to_string());
-
-        Ok(summary)
+    if !resp.status().is_success() {
+        return Err(format!("{}", resp.status()));
     }
+
+    let data: Resp = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(data
+        .content
+        .first()
+        .map(|b| b.text.clone())
+        .unwrap_or_default())
+}
+
+async fn call_ollama(
+    client: &Client,
+    url: &str,
+    model: &str,
+    prompt: &str,
+) -> Result<String, String> {
+    #[derive(Serialize)]
+    struct Req {
+        model: String,
+        prompt: String,
+        stream: bool,
+    }
+    #[derive(Deserialize)]
+    struct Resp {
+        response: String,
+    }
+
+    let resp = client
+        .post(format!("{}/api/generate", url.trim_end_matches('/')))
+        .json(&Req {
+            model: model.to_string(),
+            prompt: prompt.to_string(),
+            stream: false,
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("{}", resp.status()));
+    }
+
+    let data: Resp = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(data.response.trim().to_string())
+}
+
+fn build_prompt(activities: &[Activity]) -> String {
+    let commits: String = activities
+        .iter()
+        .map(|a| {
+            let repo = format!("{}/{}", a.commit.repository.owner, a.commit.repository.name);
+            let msg = a.commit.message.lines().next().unwrap_or("");
+            let pr = a
+                .associated_pr
+                .as_ref()
+                .map(|p| format!(" (PR #{})", p.number))
+                .unwrap_or_default();
+            format!("- [{}] {}{}\n", repo, msg, pr)
+        })
+        .collect();
+
+    format!(
+        "Summarize this developer's daily GitHub activity into 2-5 bullet points.\n\
+         Focus on WHAT was accomplished, group related work, use action verbs.\n\
+         Return ONLY bullet points starting with \"- \".\n\n{}",
+        commits
+    )
 }
