@@ -1,3 +1,4 @@
+use crate::summarizer::Provider;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -20,6 +21,14 @@ pub struct Cli {
     /// Output file path
     #[arg(long, short = 'o', env = "OUTPUT_FILE", global = true)]
     pub output: Option<PathBuf>,
+
+    /// Summarizer provider (claude or ollama)
+    #[arg(long, short = 'p', env = "SUMMARIZER_PROVIDER", global = true)]
+    pub provider: Option<Provider>,
+
+    /// Ollama model to use (e.g., llama3.2:3b, phi3:mini, mistral:7b)
+    #[arg(long, env = "OLLAMA_MODEL", global = true)]
+    pub ollama_model: Option<String>,
 
     /// Enable verbose logging
     #[arg(long, short = 'v', global = true)]

@@ -6,7 +6,7 @@ use github_daily_recap::{
     error::RecapError,
     github::GitHubClient,
     recap::{append_to_file, file_ops::copy_file, RecapGenerator},
-    Summarizer,
+    summarize,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -55,7 +55,13 @@ async fn run() -> github_daily_recap::Result<()> {
 
 fn load_settings(cli: &Cli) -> github_daily_recap::Result<Settings> {
     let settings = Settings::load()?;
-    Ok(settings.with_overrides(cli.token.clone(), cli.username.clone(), cli.output.clone()))
+    Ok(settings.with_overrides(
+        cli.token.clone(),
+        cli.username.clone(),
+        cli.output.clone(),
+        cli.provider,
+        cli.ollama_model.clone(),
+    ))
 }
 
 fn parse_date(date: Option<String>) -> github_daily_recap::Result<NaiveDate> {
@@ -87,22 +93,18 @@ async fn run_generate(
         return Ok(());
     }
 
-    // Generate markdown - use Claude to summarize if API key is available
-    let markdown = if let Some(api_key) = &settings.anthropic_api_key {
-        eprintln!("Summarizing {} commits with Claude...", activities.len());
-        let summarizer = Summarizer::new(api_key);
-        match summarizer.summarize_activities(&activities).await {
-            Ok(summary) => generator.generate_markdown_with_summary(date, &summary),
-            Err(e) => {
-                eprintln!(
-                    "Warning: Claude summarization failed ({}), using raw commits",
-                    e
-                );
-                generator.generate_markdown(date, activities.clone())
-            }
-        }
-    } else {
-        generator.generate_markdown(date, activities.clone())
+    // Generate markdown with optional AI summary
+    let markdown = match summarize(
+        &activities,
+        settings.summarizer_provider,
+        settings.anthropic_api_key.as_deref(),
+        &settings.ollama_url,
+        &settings.ollama_model,
+    )
+    .await
+    {
+        Some(summary) => generator.generate_markdown_with_summary(date, &summary),
+        None => generator.generate_markdown(date, activities.clone()),
     };
 
     if preview {
@@ -138,6 +140,8 @@ fn show_config(cli: &Cli) {
                 cli.token.clone(),
                 cli.username.clone(),
                 cli.output.clone(),
+                cli.provider,
+                cli.ollama_model.clone(),
             );
             println!(
                 "  GITHUB_TOKEN: {}****",
@@ -150,10 +154,13 @@ fn show_config(cli: &Cli) {
                 Some(path) => println!("  BEAR_COPY_PATH: {}", path.display()),
                 None => println!("  BEAR_COPY_PATH: (not set)"),
             }
+            println!("  SUMMARIZER_PROVIDER: {}", settings.summarizer_provider);
             match &settings.anthropic_api_key {
                 Some(key) => println!("  ANTHROPIC_API_KEY: {}****", &key[..8.min(key.len())]),
-                None => println!("  ANTHROPIC_API_KEY: (not set - will use raw commits)"),
+                None => println!("  ANTHROPIC_API_KEY: (not set)"),
             }
+            println!("  OLLAMA_URL: {}", settings.ollama_url);
+            println!("  OLLAMA_MODEL: {}", settings.ollama_model);
         }
         Err(e) => {
             println!("  Error loading settings: {}", e);
@@ -175,6 +182,8 @@ fn show_config(cli: &Cli) {
     println!("  --token: {:?}", cli.token.as_ref().map(|_| "****"));
     println!("  --username: {:?}", cli.username);
     println!("  --output: {:?}", cli.output);
+    println!("  --provider: {:?}", cli.provider);
+    println!("  --ollama-model: {:?}", cli.ollama_model);
 }
 
 fn show_init_instructions() {
@@ -183,14 +192,26 @@ fn show_init_instructions() {
     println!("   https://github.com/settings/tokens\n");
     println!("   Required scopes: repo (for private repos) or public_repo (for public only)\n");
     println!("2. Set the following environment variables:\n");
+    println!("   # Required");
     println!("   export GITHUB_TOKEN=\"ghp_your_token_here\"");
-    println!("   export GITHUB_USERNAME=\"your-github-username\"");
-    println!("   export OUTPUT_FILE=\"~/daily-recap.md\"  # optional");
-    println!("   export DATE_FORMAT=\"%d/%m/%y\"  # optional\n");
-    println!("3. Add to your shell profile (~/.bashrc, ~/.zshrc, etc.) to persist.\n");
-    println!("4. Usage:");
+    println!("   export GITHUB_USERNAME=\"your-github-username\"\n");
+    println!("   # Optional - Output");
+    println!("   export OUTPUT_FILE=\"~/daily-recap.md\"");
+    println!("   export DATE_FORMAT=\"%d/%m/%y\"\n");
+    println!("   # Optional - Summarization (choose one provider)");
+    println!("   export SUMMARIZER_PROVIDER=\"claude\"  # or \"ollama\"");
+    println!("   export ANTHROPIC_API_KEY=\"sk-ant-...\"  # for Claude");
+    println!("   export OLLAMA_URL=\"http://localhost:11434\"  # for Ollama");
+    println!("   export OLLAMA_MODEL=\"llama3.2:3b\"  # for Ollama\n");
+    println!("3. For Ollama (local LLM):");
+    println!("   brew install ollama");
+    println!("   ollama serve");
+    println!("   ollama pull llama3.2:3b\n");
+    println!("4. Add to your shell profile (~/.bashrc, ~/.zshrc, etc.) to persist.\n");
+    println!("5. Usage:");
     println!("   github-daily-recap today           # Generate recap for today");
     println!("   github-daily-recap today --preview # Preview without saving");
+    println!("   github-daily-recap today --provider ollama  # Use Ollama");
     println!("   github-daily-recap generate --date 2026-01-07");
 }
 

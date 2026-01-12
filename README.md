@@ -3,12 +3,13 @@
 
 # GitHub Daily Recap
 
-A CLI tool that fetches your daily GitHub commits, uses Claude to summarize them into meaningful bullet points, and maintains a running log of your work.
+A CLI tool that fetches your daily GitHub commits, uses an LLM to summarize them into meaningful bullet points, and maintains a running log of your work.
 
 ## Features
 
 - Fetches all commits across all your repositories for a given day
-- Uses Claude to intelligently summarize commits into feature/project-focused bullet points
+- Summarizes commits using Claude (cloud) or Ollama (local)
+- Auto-fallback: If Ollama fails, falls back to Claude automatically
 - Maintains a single markdown file with all daily recaps
 - Supports automated daily runs via macOS launchd
 
@@ -19,7 +20,9 @@ A CLI tool that fetches your daily GitHub commits, uses Claude to summarize them
 - Rust (install via [rustup](https://rustup.rs/))
 - [just](https://github.com/casey/just) command runner (`brew install just` or `cargo install just`)
 - A GitHub Personal Access Token ([create one here](https://github.com/settings/tokens))
-- An Anthropic API key for Claude summarization ([get one here](https://console.anthropic.com/))
+- **One of:**
+  - An Anthropic API key for Claude summarization ([get one here](https://console.anthropic.com/))
+  - Ollama installed locally for free local summarization
 
 ### Setup
 
@@ -37,6 +40,17 @@ just today        # Generate today's recap
 just generate 2026-01-07  # Generate for a specific date
 just week         # Generate for the past 7 days
 just config       # View configuration
+```
+
+### CLI Flags
+
+```bash
+# Switch provider on the fly
+github-daily-recap today --provider ollama
+github-daily-recap today --provider claude
+
+# Use a different Ollama model
+github-daily-recap today --provider ollama --ollama-model llama3.2:3b
 ```
 
 ## Output Format
