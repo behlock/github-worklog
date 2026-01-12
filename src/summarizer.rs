@@ -1,6 +1,7 @@
 use crate::github::Activity;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -42,6 +43,10 @@ pub async fn summarize(
     ollama_url: &str,
     ollama_model: &str,
 ) -> Option<String> {
+    if activities.is_empty() {
+        return None;
+    }
+
     let prompt = build_prompt(activities);
     let client = Client::new();
 
@@ -109,7 +114,9 @@ async fn call_claude(client: &Client, api_key: &str, prompt: &str) -> Result<Str
         .map_err(|e| e.to_string())?;
 
     if !resp.status().is_success() {
-        return Err(format!("{}", resp.status()));
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("Claude API error {}: {}", status, body));
     }
 
     let data: Resp = resp.json().await.map_err(|e| e.to_string())?;
@@ -139,6 +146,7 @@ async fn call_ollama(
 
     let resp = client
         .post(format!("{}/api/generate", url.trim_end_matches('/')))
+        .timeout(Duration::from_secs(120))
         .json(&Req {
             model: model.to_string(),
             prompt: prompt.to_string(),
@@ -146,10 +154,15 @@ async fn call_ollama(
         })
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Ollama request failed: {}", e))?;
 
     if !resp.status().is_success() {
-        return Err(format!("{}", resp.status()));
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!(
+            "Ollama API error {}: {} (hint: run `ollama pull {}`)",
+            status, body, model
+        ));
     }
 
     let data: Resp = resp.json().await.map_err(|e| e.to_string())?;
