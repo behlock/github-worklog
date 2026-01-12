@@ -33,7 +33,7 @@ impl RecapGenerator {
             output.push_str(&format!("\n### {}\n", repo_name));
 
             for activity in repo_activities {
-                let bullet = self.format_activity(&activity);
+                let bullet = self.format_activity(activity);
                 output.push_str(&format!("- {}\n", bullet));
             }
         }
@@ -58,13 +58,7 @@ impl RecapGenerator {
 
     fn format_activity(&self, activity: &Activity) -> String {
         // Get first line of commit message
-        let commit_msg = activity
-            .commit
-            .message
-            .lines()
-            .next()
-            .unwrap_or("")
-            .trim();
+        let commit_msg = activity.commit.message.lines().next().unwrap_or("").trim();
 
         match &activity.associated_pr {
             Some(pr) => {

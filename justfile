@@ -60,3 +60,25 @@ cron:
 # Clean build artifacts
 clean:
     cargo clean
+
+# Run clippy linter
+lint:
+    cargo clippy -- -D warnings
+
+# Format code
+fmt:
+    cargo fmt
+
+# Check formatting without modifying files
+fmt-check:
+    cargo fmt -- --check
+
+# Run all checks (format, lint, tests)
+check-all:
+    just fmt-check
+    just lint
+    just test
+
+# Install git hooks
+install-hooks:
+    ./scripts/install-hooks.sh

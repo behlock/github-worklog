@@ -42,9 +42,7 @@ impl Settings {
 
         let date_format = std::env::var("DATE_FORMAT").unwrap_or_else(|_| default_date_format());
 
-        let bear_copy_path = std::env::var("BEAR_COPY_PATH")
-            .ok()
-            .map(PathBuf::from);
+        let bear_copy_path = std::env::var("BEAR_COPY_PATH").ok().map(PathBuf::from);
 
         let anthropic_api_key = std::env::var("ANTHROPIC_API_KEY").ok();
 

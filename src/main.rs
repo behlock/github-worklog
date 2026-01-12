@@ -5,7 +5,7 @@ use github_daily_recap::{
     config::Settings,
     error::RecapError,
     github::GitHubClient,
-    recap::{file_ops::copy_file, append_to_file, RecapGenerator},
+    recap::{append_to_file, file_ops::copy_file, RecapGenerator},
     Summarizer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -55,11 +55,7 @@ async fn run() -> github_daily_recap::Result<()> {
 
 fn load_settings(cli: &Cli) -> github_daily_recap::Result<Settings> {
     let settings = Settings::load()?;
-    Ok(settings.with_overrides(
-        cli.token.clone(),
-        cli.username.clone(),
-        cli.output.clone(),
-    ))
+    Ok(settings.with_overrides(cli.token.clone(), cli.username.clone(), cli.output.clone()))
 }
 
 fn parse_date(date: Option<String>) -> github_daily_recap::Result<NaiveDate> {
@@ -98,7 +94,10 @@ async fn run_generate(
         match summarizer.summarize_activities(&activities).await {
             Ok(summary) => generator.generate_markdown_with_summary(date, &summary),
             Err(e) => {
-                eprintln!("Warning: Claude summarization failed ({}), using raw commits", e);
+                eprintln!(
+                    "Warning: Claude summarization failed ({}), using raw commits",
+                    e
+                );
                 generator.generate_markdown(date, activities.clone())
             }
         }
@@ -140,7 +139,10 @@ fn show_config(cli: &Cli) {
                 cli.username.clone(),
                 cli.output.clone(),
             );
-            println!("  GITHUB_TOKEN: {}****", &settings.github_token[..8.min(settings.github_token.len())]);
+            println!(
+                "  GITHUB_TOKEN: {}****",
+                &settings.github_token[..8.min(settings.github_token.len())]
+            );
             println!("  GITHUB_USERNAME: {}", settings.github_username);
             println!("  OUTPUT_FILE: {}", settings.output_file.display());
             println!("  DATE_FORMAT: {}", settings.date_format);

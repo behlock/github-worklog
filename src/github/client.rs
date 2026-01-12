@@ -14,7 +14,7 @@ impl GitHubClient {
         let client = Octocrab::builder()
             .personal_token(token.to_string())
             .build()
-            .map_err(|e| crate::error::RecapError::GitHubApi(e))?;
+            .map_err(crate::error::RecapError::GitHubApi)?;
 
         Ok(Self {
             client: Arc::new(client),

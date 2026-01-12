@@ -4,7 +4,8 @@
       "Bash(cargo build:*)",
       "Bash(cargo test:*)",
       "Bash(just:*)",
-      "Bash(cargo clean:*)"
+      "Bash(cargo clean:*)",
+      "Bash(chmod:*)"
     ]
   }
 }

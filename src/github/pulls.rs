@@ -18,7 +18,13 @@ pub async fn enrich_commits_with_prs(
     let mut activities = Vec::new();
 
     for commit in commits {
-        let pr = get_pr_for_commit(client, &commit.repository.owner, &commit.repository.name, &commit.sha).await?;
+        let pr = get_pr_for_commit(
+            client,
+            &commit.repository.owner,
+            &commit.repository.name,
+            &commit.sha,
+        )
+        .await?;
 
         activities.push(Activity {
             commit,
@@ -43,9 +49,8 @@ async fn get_pr_for_commit(
         owner, repo, sha
     );
 
-    let response: std::result::Result<Vec<PullRequestResponse>, _> = client
-        .get(&url, None::<&()>)
-        .await;
+    let response: std::result::Result<Vec<PullRequestResponse>, _> =
+        client.get(&url, None::<&()>).await;
 
     match response {
         Ok(prs) => {

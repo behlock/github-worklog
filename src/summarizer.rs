@@ -55,7 +55,12 @@ impl Summarizer {
                 Some(pr) => format!(" (PR #{}: {})", pr.number, pr.title),
                 None => String::new(),
             };
-            commits_text.push_str(&format!("- [{}] {}{}\n", repo, message.lines().next().unwrap_or(""), pr_info));
+            commits_text.push_str(&format!(
+                "- [{}] {}{}\n",
+                repo,
+                message.lines().next().unwrap_or(""),
+                pr_info
+            ));
         }
 
         let prompt = format!(

@@ -17,9 +17,9 @@ pub fn append_to_file(path: &Path, content: &str) -> Result<()> {
     // Read existing content (or empty string if file doesn't exist)
     let existing = fs::read_to_string(&expanded_path).unwrap_or_default();
 
-    // Create new content with appended recap (chronological order)
+    // Create new content with prepended recap (newest first)
     let separator = if existing.is_empty() { "" } else { "\n---\n\n" };
-    let new_content = format!("{}{}{}", existing, separator, content);
+    let new_content = format!("{}{}{}", content, separator, existing);
 
     // Write back
     fs::write(&expanded_path, new_content).map_err(|source| RecapError::FileOp {
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn test_append_to_existing_file() {
+    fn test_prepend_to_existing_file() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.md");
 
@@ -94,8 +94,8 @@ mod tests {
         append_to_file(&file_path, "New content").unwrap();
 
         let contents = fs::read_to_string(&file_path).unwrap();
-        assert!(contents.starts_with("Old content"));
+        assert!(contents.starts_with("New content"));
         assert!(contents.contains("---"));
-        assert!(contents.ends_with("New content"));
+        assert!(contents.ends_with("Old content"));
     }
 }

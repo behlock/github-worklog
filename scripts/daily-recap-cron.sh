@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Daily GitHub Recap - Automated Script
-# Runs the recap tool and commits changes to git
+# Runs the recap tool and saves to iCloud Drive
 
 set -e
 
@@ -19,12 +19,4 @@ fi
 # Run the recap tool for today
 ./target/release/github-daily-recap today
 
-# Check if there are changes to commit
-if [[ -n $(git status --porcelain daily-recap.md 2>/dev/null) ]]; then
-    git add daily-recap.md
-    git commit -m "Daily recap for $(date +%Y-%m-%d)"
-    git push origin main
-    echo "$(date): Recap generated and pushed to GitHub"
-else
-    echo "$(date): No changes to commit"
-fi
+echo "$(date): Recap generated and saved to $OUTPUT_FILE"
