@@ -1,5 +1,6 @@
 ![Orca Sequencer](assets/orca-sequencer.png)
-*[Orca](https://github.com/hundredrabbits/Orca) - livecoding environment*
+*[Orca](https://github.com/hundredrabbits/Orca) - livecoding environment
+(reminds me of commit history)* 
 
 # GitHub Worklog
 
