@@ -1,4 +1,4 @@
-![Orca Sequencer](.claude/orca-sequencer.png)
+![Orca Sequencer](assets/orca-sequencer.png)
 *[Orca](https://github.com/hundredrabbits/Orca) - livecoding environment*
 
 # GitHub Worklog
