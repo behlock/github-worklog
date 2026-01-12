@@ -7,7 +7,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-PLIST_NAME="com.github-daily-recap.plist"
+PLIST_NAME="com.github-worklog.plist"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 LOG_DIR="$HOME/.local/log"
 
@@ -18,7 +18,7 @@ echo "Project directory: $PROJECT_DIR"
 echo ""
 
 # Check if binary exists
-if [[ ! -f "$PROJECT_DIR/target/release/github-daily-recap" ]]; then
+if [[ ! -f "$PROJECT_DIR/target/release/github-worklog" ]]; then
     echo "Error: Binary not found. Please run 'cargo build --release' first."
     exit 1
 fi
@@ -36,10 +36,10 @@ mkdir -p "$LOG_DIR"
 mkdir -p "$LAUNCH_AGENTS_DIR"
 
 # Generate plist from template
-SCRIPT_PATH="$SCRIPT_DIR/daily-recap-cron.sh"
+SCRIPT_PATH="$SCRIPT_DIR/worklog-cron.sh"
 sed -e "s|{{SCRIPT_PATH}}|$SCRIPT_PATH|g" \
     -e "s|{{LOG_DIR}}|$LOG_DIR|g" \
-    "$SCRIPT_DIR/com.github-daily-recap.plist.template" > "$LAUNCH_AGENTS_DIR/$PLIST_NAME"
+    "$SCRIPT_DIR/com.github-worklog.plist.template" > "$LAUNCH_AGENTS_DIR/$PLIST_NAME"
 
 echo "Generated launchd plist at: $LAUNCH_AGENTS_DIR/$PLIST_NAME"
 
@@ -55,8 +55,8 @@ echo ""
 echo "The recap will run automatically every day at midnight."
 echo ""
 echo "Useful commands:"
-echo "  Check status:    launchctl list | grep daily-recap"
-echo "  View logs:       cat $LOG_DIR/daily-recap-stdout.log"
-echo "  Run manually:    $SCRIPT_DIR/daily-recap-cron.sh"
+echo "  Check status:    launchctl list | grep worklog"
+echo "  View logs:       cat $LOG_DIR/worklog-stdout.log"
+echo "  Run manually:    $SCRIPT_DIR/worklog-cron.sh"
 echo "  Uninstall:       launchctl unload $LAUNCH_AGENTS_DIR/$PLIST_NAME"
 echo ""

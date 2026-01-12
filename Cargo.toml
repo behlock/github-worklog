@@ -1,5 +1,5 @@
 [package]
-name = "github-daily-recap"
+name = "github-worklog"
 version = "0.1.0"
 edition = "2021"
 description = "CLI tool that fetches daily GitHub commits and PRs and generates markdown summaries"
@@ -50,9 +50,9 @@ tokio-test = "0.4"
 tempfile = "3.24"
 
 [[bin]]
-name = "github-daily-recap"
+name = "github-worklog"
 path = "src/main.rs"
 
 [lib]
-name = "github_daily_recap"
+name = "github_worklog"
 path = "src/lib.rs"

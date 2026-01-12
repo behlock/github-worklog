@@ -1,7 +1,7 @@
 ![Orca Sequencer](.claude/orca-sequencer.png)
 *[Orca](https://github.com/hundredrabbits/Orca) - livecoding environment*
 
-# GitHub Daily Recap
+# GitHub Worklog
 
 A CLI tool that fetches your daily GitHub commits, uses an LLM to summarize them into meaningful bullet points, and maintains a running log of your work.
 
@@ -46,11 +46,11 @@ just config       # View configuration
 
 ```bash
 # Switch provider on the fly
-github-daily-recap today --provider ollama
-github-daily-recap today --provider claude
+github-worklog today --provider ollama
+github-worklog today --provider claude
 
 # Use a different Ollama model
-github-daily-recap today --provider ollama --ollama-model llama3.2:3b
+github-worklog today --provider ollama --ollama-model llama3.2:3b
 ```
 
 ## Output Format

@@ -1,6 +1,6 @@
 use chrono::{Local, NaiveDate};
 use clap::Parser;
-use github_daily_recap::{
+use github_worklog::{
     cli::{Cli, Commands},
     config::Settings,
     error::RecapError,
@@ -18,7 +18,7 @@ async fn main() {
     }
 }
 
-async fn run() -> github_daily_recap::Result<()> {
+async fn run() -> github_worklog::Result<()> {
     let cli = Cli::parse();
 
     // Initialize logging
@@ -53,7 +53,7 @@ async fn run() -> github_daily_recap::Result<()> {
     Ok(())
 }
 
-fn load_settings(cli: &Cli) -> github_daily_recap::Result<Settings> {
+fn load_settings(cli: &Cli) -> github_worklog::Result<Settings> {
     let settings = Settings::load()?;
     Ok(settings.with_overrides(
         cli.token.clone(),
@@ -64,7 +64,7 @@ fn load_settings(cli: &Cli) -> github_daily_recap::Result<Settings> {
     ))
 }
 
-fn parse_date(date: Option<String>) -> github_daily_recap::Result<NaiveDate> {
+fn parse_date(date: Option<String>) -> github_worklog::Result<NaiveDate> {
     match date {
         Some(d) => NaiveDate::parse_from_str(&d, "%Y-%m-%d")
             .map_err(|_| RecapError::DateParse { input: d }),
@@ -76,7 +76,7 @@ async fn run_generate(
     settings: Settings,
     date: NaiveDate,
     preview: bool,
-) -> github_daily_recap::Result<()> {
+) -> github_worklog::Result<()> {
     let client = GitHubClient::new(&settings.github_token, &settings.github_username)?;
     let generator = RecapGenerator::new(&settings.date_format);
 
@@ -196,7 +196,7 @@ fn show_init_instructions() {
     println!("   export GITHUB_TOKEN=\"ghp_your_token_here\"");
     println!("   export GITHUB_USERNAME=\"your-github-username\"\n");
     println!("   # Optional - Output");
-    println!("   export OUTPUT_FILE=\"~/daily-recap.md\"");
+    println!("   export OUTPUT_FILE=\"~/worklog.md\"");
     println!("   export DATE_FORMAT=\"%d/%m/%y\"\n");
     println!("   # Optional - Summarization (choose one provider)");
     println!("   export SUMMARIZER_PROVIDER=\"claude\"  # or \"ollama\"");
@@ -209,10 +209,10 @@ fn show_init_instructions() {
     println!("   ollama pull llama3.2:3b\n");
     println!("4. Add to your shell profile (~/.bashrc, ~/.zshrc, etc.) to persist.\n");
     println!("5. Usage:");
-    println!("   github-daily-recap today           # Generate recap for today");
-    println!("   github-daily-recap today --preview # Preview without saving");
-    println!("   github-daily-recap today --provider ollama  # Use Ollama");
-    println!("   github-daily-recap generate --date 2026-01-07");
+    println!("   github-worklog today           # Generate recap for today");
+    println!("   github-worklog today --preview # Preview without saving");
+    println!("   github-worklog today --provider ollama  # Use Ollama");
+    println!("   github-worklog generate --date 2026-01-07");
 }
 
 fn print_error(e: &RecapError) {
@@ -224,7 +224,7 @@ fn print_error(e: &RecapError) {
         }
         RecapError::MissingConfig(field) => {
             eprintln!("Error: Missing required configuration '{}'", field);
-            eprintln!("Run 'github-daily-recap init' for setup instructions.");
+            eprintln!("Run 'github-worklog init' for setup instructions.");
         }
         RecapError::RateLimitExceeded { retry_after } => {
             eprintln!("Error: GitHub API rate limit exceeded.");

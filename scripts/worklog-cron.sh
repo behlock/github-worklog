@@ -17,6 +17,6 @@ if [[ -f .env ]]; then
 fi
 
 # Run the recap tool for today
-./target/release/github-daily-recap today
+./target/release/github-worklog today
 
 echo "$(date): Recap generated and saved to $OUTPUT_FILE"

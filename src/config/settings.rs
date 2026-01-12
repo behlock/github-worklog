@@ -49,7 +49,7 @@ impl Settings {
             .unwrap_or_else(|_| {
                 dirs::home_dir()
                     .unwrap_or_else(|| PathBuf::from("."))
-                    .join("daily-recap.md")
+                    .join("worklog.md")
             });
 
         let date_format = std::env::var("DATE_FORMAT").unwrap_or_else(|_| default_date_format());
@@ -107,7 +107,7 @@ impl Settings {
     }
 
     pub fn config_dir() -> Option<PathBuf> {
-        ProjectDirs::from("com", "github-daily-recap", "github-daily-recap")
+        ProjectDirs::from("com", "github-worklog", "github-worklog")
             .map(|dirs| dirs.config_dir().to_path_buf())
     }
 

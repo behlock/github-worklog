@@ -4,4 +4,4 @@
 .env
 
 # Daily recap file (local copy)
-daily-recap.md
+worklog.md

@@ -478,7 +478,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "github-daily-recap"
+name = "github-worklog"
 version = "0.1.0"
 dependencies = [
  "anyhow",

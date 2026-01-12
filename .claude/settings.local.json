@@ -7,8 +7,9 @@
       "Bash(cargo clean:*)",
       "Bash(chmod:*)",
       "WebSearch",
-      "Bash(./target/release/github-daily-recap:*)",
-      "Bash(gh pr list:*)"
+      "Bash(./target/release/github-worklog:*)",
+      "Bash(gh pr list:*)",
+      "Bash(./target/debug/github-worklog:*)"
     ]
   }
 }

@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "github-daily-recap")]
+#[command(name = "github-worklog")]
 #[command(about = "Generate daily GitHub activity recaps", long_about = None)]
 #[command(version)]
 pub struct Cli {
