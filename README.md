@@ -9,7 +9,6 @@ A CLI tool that fetches your daily GitHub commits, uses an LLM to summarize them
 
 - Fetches all commits across all your repositories for a given day
 - Summarizes commits using Claude (cloud) or Ollama (local)
-- Auto-fallback: If Ollama fails, falls back to Claude automatically
 - Maintains a single markdown file with all daily recaps
 - Supports automated daily runs via macOS launchd
 
@@ -19,7 +18,6 @@ A CLI tool that fetches your daily GitHub commits, uses an LLM to summarize them
 
 - Rust (install via [rustup](https://rustup.rs/))
 - [just](https://github.com/casey/just) command runner (`brew install just` or `cargo install just`)
-- A GitHub Personal Access Token ([create one here](https://github.com/settings/tokens))
 - **One of:**
   - An Anthropic API key for Claude summarization ([get one here](https://console.anthropic.com/))
   - Ollama installed locally for free local summarization
