@@ -5,9 +5,10 @@ use github_worklog::{
     config::Settings,
     error::RecapError,
     github::GitHubClient,
-    recap::{append_to_file, file_ops::copy_file, RecapGenerator},
+    recap::{file_ops::copy_file, file_ops::prepend_to_file, RecapGenerator},
     summarize,
 };
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -32,15 +33,27 @@ async fn run() -> github_worklog::Result<()> {
         .init();
 
     match &cli.command {
-        Commands::Generate { date, preview } => {
+        Commands::Generate {
+            date,
+            preview,
+            force,
+        } => {
             let settings = load_settings(&cli)?;
             let target_date = parse_date(date.clone())?;
-            run_generate(settings, target_date, *preview).await?;
+            debug!(
+                "Generate command: date={}, preview={}, force={}",
+                target_date, preview, force
+            );
+            run_generate(settings, target_date, *preview, *force).await?;
         }
-        Commands::Today { preview } => {
+        Commands::Today { preview, force } => {
             let settings = load_settings(&cli)?;
             let today = Local::now().date_naive();
-            run_generate(settings, today, *preview).await?;
+            debug!(
+                "Today command: date={}, preview={}, force={}",
+                today, preview, force
+            );
+            run_generate(settings, today, *preview, *force).await?;
         }
         Commands::Config => {
             show_config(&cli);
@@ -76,10 +89,16 @@ async fn run_generate(
     settings: Settings,
     date: NaiveDate,
     preview: bool,
+    force: bool,
 ) -> github_worklog::Result<()> {
     let client = GitHubClient::new(&settings.github_token, &settings.github_username)?;
     let generator = RecapGenerator::new(&settings.date_format);
 
+    info!(
+        "Fetching commits for {} on {}",
+        settings.github_username,
+        date.format("%Y-%m-%d")
+    );
     eprintln!(
         "Fetching commits for {} on {}...",
         settings.github_username,
@@ -87,13 +106,29 @@ async fn run_generate(
     );
 
     let activities = client.get_activities_for_date(date).await?;
+    debug!("Found {} activities", activities.len());
 
     if activities.is_empty() {
+        warn!(
+            "No commits found for {} on {}",
+            settings.github_username,
+            date.format("%Y-%m-%d")
+        );
         eprintln!("No commits found for this day.");
         return Ok(());
     }
 
+    info!(
+        "Found {} commits for {}",
+        activities.len(),
+        date.format("%Y-%m-%d")
+    );
+
     // Generate markdown with optional AI summary
+    debug!(
+        "Generating markdown (summarizer: {:?})",
+        settings.summarizer_provider
+    );
     let markdown = match summarize(
         &activities,
         settings.summarizer_provider,
@@ -103,23 +138,60 @@ async fn run_generate(
     )
     .await
     {
-        Some(summary) => generator.generate_markdown_with_summary(date, &summary),
-        None => generator.generate_markdown(date, activities.clone()),
+        Some(summary) => {
+            debug!("Got AI summary, generating markdown with summary");
+            generator.generate_markdown_with_summary(date, &summary)
+        }
+        None => {
+            debug!("No AI summary, generating plain markdown");
+            generator.generate_markdown(date, activities.clone())
+        }
     };
 
     if preview {
+        info!("Preview mode - not writing to file");
         println!("{}", markdown);
     } else {
-        append_to_file(&settings.output_file, &markdown)?;
-        eprintln!(
-            "Generated recap with {} activities. Saved to {}",
-            activities.len(),
-            settings.output_file.display()
+        let formatted_date = date.format(&settings.date_format).to_string();
+        debug!(
+            "Writing to file: {} (date header: '{}', force: {})",
+            settings.output_file.display(),
+            formatted_date,
+            force
         );
+
+        match prepend_to_file(&settings.output_file, &markdown, &formatted_date, force) {
+            Ok(_) => {
+                info!(
+                    "Generated recap with {} activities. Saved to {}",
+                    activities.len(),
+                    settings.output_file.display()
+                );
+                eprintln!(
+                    "Generated recap with {} activities. Saved to {}",
+                    activities.len(),
+                    settings.output_file.display()
+                );
+            }
+            Err(RecapError::DuplicateDate { date, path }) => {
+                warn!("Duplicate entry detected for date '{}' in {}", date, path);
+                eprintln!(
+                    "Entry for date '{}' already exists in {}. Use --force to overwrite.",
+                    date, path
+                );
+                return Ok(());
+            }
+            Err(e) => {
+                error!("Failed to write recap: {}", e);
+                return Err(e);
+            }
+        }
 
         // Copy to Bear if configured
         if let Some(bear_path) = &settings.bear_copy_path {
+            debug!("Copying to Bear: {}", bear_path.display());
             copy_file(&settings.output_file, bear_path)?;
+            info!("Copied to Bear: {}", bear_path.display());
             eprintln!("Copied to Bear: {}", bear_path.display());
         }
     }
@@ -216,6 +288,7 @@ fn show_init_instructions() {
 }
 
 fn print_error(e: &RecapError) {
+    error!("Error occurred: {}", e);
     match e {
         RecapError::InvalidToken => {
             eprintln!("Error: Invalid GitHub token.");
@@ -232,6 +305,10 @@ fn print_error(e: &RecapError) {
         }
         RecapError::NoCommitsFound { username, date } => {
             eprintln!("No commits found for {} on {}", username, date);
+        }
+        RecapError::DuplicateDate { date, path } => {
+            eprintln!("Entry for date '{}' already exists in {}", date, path);
+            eprintln!("Use --force to overwrite the existing entry.");
         }
         _ => {
             eprintln!("Error: {}", e);

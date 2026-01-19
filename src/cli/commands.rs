@@ -46,6 +46,10 @@ pub enum Commands {
         /// Preview without writing to file
         #[arg(long)]
         preview: bool,
+
+        /// Force overwrite if entry for this date already exists
+        #[arg(short, long)]
+        force: bool,
     },
 
     /// Generate recap for today
@@ -53,6 +57,10 @@ pub enum Commands {
         /// Preview without writing to file
         #[arg(long)]
         preview: bool,
+
+        /// Force overwrite if entry for this date already exists
+        #[arg(short, long)]
+        force: bool,
     },
 
     /// Show current configuration

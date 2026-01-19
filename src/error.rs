@@ -29,6 +29,9 @@ pub enum RecapError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Entry for date '{date}' already exists in {path}. Use --force to overwrite.")]
+    DuplicateDate { date: String, path: String },
 }
 
 pub type Result<T> = std::result::Result<T, RecapError>;

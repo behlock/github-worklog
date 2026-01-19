@@ -8,5 +8,7 @@ pub mod summarizer;
 pub use config::Settings;
 pub use error::{RecapError, Result};
 pub use github::GitHubClient;
-pub use recap::{append_to_file, RecapGenerator};
+#[allow(deprecated)]
+pub use recap::append_to_file;
+pub use recap::{prepend_to_file, RecapGenerator, WriteResult};
 pub use summarizer::{summarize, Provider};
