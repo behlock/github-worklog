@@ -9,7 +9,9 @@
       "WebSearch",
       "Bash(./target/release/github-worklog:*)",
       "Bash(gh pr list:*)",
-      "Bash(./target/debug/github-worklog:*)"
+      "Bash(./target/debug/github-worklog:*)",
+      "Bash(launchctl list:*)",
+      "Bash(./scripts/worklog-cron.sh:*)"
     ]
   }
 }

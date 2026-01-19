@@ -11,12 +11,14 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-# Load environment variables
+# Load environment variables (handles quoted values with spaces)
 if [[ -f .env ]]; then
-    export $(grep -v '^#' .env | xargs)
+    set -a
+    source .env
+    set +a
 fi
 
-# Run the recap tool for today
-./target/release/github-worklog today
+# Run the recap tool for yesterday (since this runs at midnight)
+./target/release/github-worklog generate --date "$(date -v-1d +%Y-%m-%d)"
 
 echo "$(date): Recap generated and saved to $OUTPUT_FILE"
