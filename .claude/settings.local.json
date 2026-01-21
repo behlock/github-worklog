@@ -11,7 +11,9 @@
       "Bash(gh pr list:*)",
       "Bash(./target/debug/github-worklog:*)",
       "Bash(launchctl list:*)",
-      "Bash(./scripts/worklog-cron.sh:*)"
+      "Bash(./scripts/worklog-cron.sh:*)",
+      "Bash(launchctl unload:*)",
+      "Bash(launchctl load:*)"
     ]
   }
 }

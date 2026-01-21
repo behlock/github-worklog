@@ -20,7 +20,7 @@ today:
 
 # Generate recap for a specific date (usage: just generate 2026-01-07)
 generate date:
-    ./target/release/github-worklog generate --date {{date}}
+    ./target/release/github-worklog generate --date {{ date }}
 
 # Generate recaps for the past week
 week:
