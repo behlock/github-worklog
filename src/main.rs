@@ -135,6 +135,8 @@ async fn run_generate(
         settings.anthropic_api_key.as_deref(),
         &settings.ollama_url,
         &settings.ollama_model,
+        &settings.claude_model,
+        settings.claude_max_tokens,
     )
     .await
     {

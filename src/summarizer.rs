@@ -42,6 +42,8 @@ pub async fn summarize(
     anthropic_key: Option<&str>,
     ollama_url: &str,
     ollama_model: &str,
+    claude_model: &str,
+    claude_max_tokens: u32,
 ) -> Option<String> {
     if activities.is_empty() {
         return None;
@@ -60,7 +62,9 @@ pub async fn summarize(
             // Fallback to Claude
             if let Some(key) = anthropic_key {
                 eprintln!("Falling back to Claude...");
-                call_claude(&client, key, &prompt).await.ok()
+                call_claude(&client, key, &prompt, claude_model, claude_max_tokens)
+                    .await
+                    .ok()
             } else {
                 None
             }
@@ -68,7 +72,9 @@ pub async fn summarize(
         Provider::Claude => {
             if let Some(key) = anthropic_key {
                 eprintln!("Summarizing with Claude...");
-                call_claude(&client, key, &prompt).await.ok()
+                call_claude(&client, key, &prompt, claude_model, claude_max_tokens)
+                    .await
+                    .ok()
             } else {
                 None
             }
@@ -76,10 +82,16 @@ pub async fn summarize(
     }
 }
 
-async fn call_claude(client: &Client, api_key: &str, prompt: &str) -> Result<String, String> {
+async fn call_claude(
+    client: &Client,
+    api_key: &str,
+    prompt: &str,
+    model: &str,
+    max_tokens: u32,
+) -> Result<String, String> {
     #[derive(Serialize)]
-    struct Req {
-        model: &'static str,
+    struct Req<'a> {
+        model: &'a str,
         max_tokens: u32,
         messages: Vec<Msg>,
     }
@@ -101,9 +113,10 @@ async fn call_claude(client: &Client, api_key: &str, prompt: &str) -> Result<Str
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
+        .timeout(Duration::from_secs(30))
         .json(&Req {
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 500,
+            model,
+            max_tokens,
             messages: vec![Msg {
                 role: "user",
                 content: prompt.to_string(),
@@ -190,4 +203,77 @@ fn build_prompt(activities: &[Activity]) -> String {
          Return ONLY bullet points starting with \"- \".\n\n{}",
         commits
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::github::{CommitInfo, PullRequestInfo, RepoInfo};
+    use chrono::Utc;
+
+    fn make_activity(owner: &str, repo: &str, message: &str, pr: Option<u64>) -> Activity {
+        Activity {
+            commit: CommitInfo {
+                sha: "abc123".to_string(),
+                message: message.to_string(),
+                author: "testuser".to_string(),
+                date: Utc::now(),
+                repository: RepoInfo {
+                    owner: owner.to_string(),
+                    name: repo.to_string(),
+                },
+                html_url: "https://github.com/test".to_string(),
+            },
+            associated_pr: pr.map(|n| PullRequestInfo {
+                number: n,
+                title: "Test PR".to_string(),
+                state: "merged".to_string(),
+                html_url: format!("https://github.com/{}/{}/pull/{}", owner, repo, n),
+            }),
+        }
+    }
+
+    #[test]
+    fn build_prompt_includes_repo_and_message() {
+        let activities = vec![make_activity("acme", "api", "fix auth bug", None)];
+        let prompt = build_prompt(&activities);
+
+        assert!(prompt.contains("[acme/api]"));
+        assert!(prompt.contains("fix auth bug"));
+        assert!(prompt.contains("Summarize"));
+    }
+
+    #[test]
+    fn build_prompt_includes_pr_number() {
+        let activities = vec![make_activity("acme", "api", "add feature", Some(42))];
+        let prompt = build_prompt(&activities);
+
+        assert!(prompt.contains("(PR #42)"));
+    }
+
+    #[test]
+    fn build_prompt_handles_multiline_commit_message() {
+        let activities = vec![make_activity(
+            "acme",
+            "api",
+            "first line\nsecond line\nthird line",
+            None,
+        )];
+        let prompt = build_prompt(&activities);
+
+        assert!(prompt.contains("first line"));
+        assert!(!prompt.contains("second line"));
+    }
+
+    #[test]
+    fn build_prompt_multiple_activities() {
+        let activities = vec![
+            make_activity("acme", "api", "fix bug", None),
+            make_activity("acme", "web", "update ui", Some(10)),
+        ];
+        let prompt = build_prompt(&activities);
+
+        assert!(prompt.contains("[acme/api] fix bug"));
+        assert!(prompt.contains("[acme/web] update ui (PR #10)"));
+    }
 }
