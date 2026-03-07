@@ -11,7 +11,7 @@ pub struct Settings {
     pub output_file: PathBuf,
     #[serde(default = "default_date_format")]
     pub date_format: String,
-    pub bear_copy_path: Option<PathBuf>,
+
     pub anthropic_api_key: Option<String>,
     pub summarizer_provider: Provider,
     pub ollama_model: String,
@@ -52,15 +52,9 @@ impl Settings {
 
         let output_file = std::env::var("OUTPUT_FILE")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::home_dir()
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join("worklog.md")
-            });
+            .unwrap_or_else(|_| PathBuf::from("./worklog.md"));
 
         let date_format = std::env::var("DATE_FORMAT").unwrap_or_else(|_| default_date_format());
-
-        let bear_copy_path = std::env::var("BEAR_COPY_PATH").ok().map(PathBuf::from);
 
         let anthropic_api_key = std::env::var("ANTHROPIC_API_KEY").ok();
 
@@ -85,7 +79,7 @@ impl Settings {
             github_username,
             output_file,
             date_format,
-            bear_copy_path,
+
             anthropic_api_key,
             summarizer_provider,
             ollama_model,
@@ -181,7 +175,7 @@ mod tests {
             github_username: "user".to_string(),
             output_file: PathBuf::from("/tmp/out.md"),
             date_format: default_date_format(),
-            bear_copy_path: None,
+
             anthropic_api_key: None,
             summarizer_provider: Provider::Claude,
             ollama_model: default_ollama_model(),

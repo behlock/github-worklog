@@ -5,7 +5,7 @@ use github_worklog::{
     config::Settings,
     error::RecapError,
     github::GitHubClient,
-    recap::{file_ops::copy_file, file_ops::prepend_to_file, RecapGenerator},
+    recap::{file_ops::prepend_to_file, RecapGenerator},
     summarize,
 };
 use tracing::{debug, error, info, warn};
@@ -188,14 +188,6 @@ async fn run_generate(
                 return Err(e);
             }
         }
-
-        // Copy to Bear if configured
-        if let Some(bear_path) = &settings.bear_copy_path {
-            debug!("Copying to Bear: {}", bear_path.display());
-            copy_file(&settings.output_file, bear_path)?;
-            info!("Copied to Bear: {}", bear_path.display());
-            eprintln!("Copied to Bear: {}", bear_path.display());
-        }
     }
 
     Ok(())
@@ -224,10 +216,7 @@ fn show_config(cli: &Cli) {
             println!("  GITHUB_USERNAME: {}", settings.github_username);
             println!("  OUTPUT_FILE: {}", settings.output_file.display());
             println!("  DATE_FORMAT: {}", settings.date_format);
-            match &settings.bear_copy_path {
-                Some(path) => println!("  BEAR_COPY_PATH: {}", path.display()),
-                None => println!("  BEAR_COPY_PATH: (not set)"),
-            }
+
             println!("  SUMMARIZER_PROVIDER: {}", settings.summarizer_provider);
             match &settings.anthropic_api_key {
                 Some(key) => println!("  ANTHROPIC_API_KEY: {}****", &key[..8.min(key.len())]),
@@ -270,7 +259,7 @@ fn show_init_instructions() {
     println!("   export GITHUB_TOKEN=\"ghp_your_token_here\"");
     println!("   export GITHUB_USERNAME=\"your-github-username\"\n");
     println!("   # Optional - Output");
-    println!("   export OUTPUT_FILE=\"~/worklog.md\"");
+    println!("   export OUTPUT_FILE=\"./worklog.md\"");
     println!("   export DATE_FORMAT=\"%d/%m/%y\"\n");
     println!("   # Optional - Summarization (choose one provider)");
     println!("   export SUMMARIZER_PROVIDER=\"claude\"  # or \"ollama\"");
