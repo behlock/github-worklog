@@ -1,7 +1,10 @@
 use crate::error::Result;
 use crate::github::models::{Activity, CommitInfo, PullRequestInfo};
+use futures::stream::{self, StreamExt};
 use octocrab::Octocrab;
 use serde::Deserialize;
+
+const PR_FETCH_CONCURRENCY: usize = 5;
 
 #[derive(Debug, Deserialize)]
 struct PullRequestResponse {
@@ -15,25 +18,26 @@ pub async fn enrich_commits_with_prs(
     client: &Octocrab,
     commits: Vec<CommitInfo>,
 ) -> Result<Vec<Activity>> {
-    let mut activities = Vec::new();
+    let activities: Vec<Activity> = stream::iter(commits)
+        .map(|commit| async {
+            let pr = get_pr_for_commit(
+                client,
+                &commit.repository.owner,
+                &commit.repository.name,
+                &commit.sha,
+            )
+            .await?;
 
-    for commit in commits {
-        let pr = get_pr_for_commit(
-            client,
-            &commit.repository.owner,
-            &commit.repository.name,
-            &commit.sha,
-        )
-        .await?;
-
-        activities.push(Activity {
-            commit,
-            associated_pr: pr,
-        });
-
-        // Small delay to avoid rate limits
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    }
+            Ok(Activity {
+                commit,
+                associated_pr: pr,
+            })
+        })
+        .buffered(PR_FETCH_CONCURRENCY)
+        .collect::<Vec<Result<Activity>>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<Activity>>>()?;
 
     Ok(activities)
 }
@@ -65,8 +69,14 @@ async fn get_pr_for_commit(
                 Ok(None)
             }
         }
-        Err(_) => {
-            // If we can't fetch PR info, just return None (not an error)
+        Err(e) => {
+            tracing::warn!(
+                "Failed to fetch PR for {}/{} commit {}: {}",
+                owner,
+                repo,
+                sha,
+                e
+            );
             Ok(None)
         }
     }

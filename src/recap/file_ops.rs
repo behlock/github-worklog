@@ -209,26 +209,6 @@ pub fn read_file(path: &Path) -> Result<String> {
     })
 }
 
-pub fn copy_file(source: &Path, dest: &Path) -> Result<()> {
-    let source_expanded = expand_tilde(source);
-    let dest_expanded = expand_tilde(dest);
-
-    // Ensure destination parent directory exists
-    if let Some(parent) = dest_expanded.parent() {
-        fs::create_dir_all(parent).map_err(|source| RecapError::FileOp {
-            path: parent.display().to_string(),
-            source,
-        })?;
-    }
-
-    fs::copy(&source_expanded, &dest_expanded).map_err(|source| RecapError::FileOp {
-        path: dest_expanded.display().to_string(),
-        source,
-    })?;
-
-    Ok(())
-}
-
 fn expand_tilde(path: &Path) -> std::path::PathBuf {
     let path_str = path.to_string_lossy();
     if path_str.starts_with("~") {
