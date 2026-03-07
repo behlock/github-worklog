@@ -33,7 +33,7 @@ pub async fn enrich_commits_with_prs(
                 associated_pr: pr,
             })
         })
-        .buffer_unordered(PR_FETCH_CONCURRENCY)
+        .buffered(PR_FETCH_CONCURRENCY)
         .collect::<Vec<Result<Activity>>>()
         .await
         .into_iter()

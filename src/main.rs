@@ -224,6 +224,8 @@ fn show_config(cli: &Cli) {
             }
             println!("  OLLAMA_URL: {}", settings.ollama_url);
             println!("  OLLAMA_MODEL: {}", settings.ollama_model);
+            println!("  CLAUDE_MODEL: {}", settings.claude_model);
+            println!("  CLAUDE_MAX_TOKENS: {}", settings.claude_max_tokens);
         }
         Err(e) => {
             println!("  Error loading settings: {}", e);
