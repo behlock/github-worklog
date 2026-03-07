@@ -69,10 +69,20 @@ impl Settings {
 
         let claude_model = std::env::var("CLAUDE_MODEL").unwrap_or_else(|_| default_claude_model());
 
-        let claude_max_tokens = std::env::var("CLAUDE_MAX_TOKENS")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(DEFAULT_CLAUDE_MAX_TOKENS);
+        let claude_max_tokens = match std::env::var("CLAUDE_MAX_TOKENS") {
+            Ok(s) => match s.parse() {
+                Ok(v) => v,
+                Err(_) => {
+                    tracing::warn!(
+                        "Invalid CLAUDE_MAX_TOKENS value '{}', using default {}",
+                        s,
+                        DEFAULT_CLAUDE_MAX_TOKENS
+                    );
+                    DEFAULT_CLAUDE_MAX_TOKENS
+                }
+            },
+            Err(_) => DEFAULT_CLAUDE_MAX_TOKENS,
+        };
 
         Ok(Settings {
             github_token,

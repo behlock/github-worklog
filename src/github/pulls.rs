@@ -4,7 +4,7 @@ use futures::stream::{self, StreamExt};
 use octocrab::Octocrab;
 use serde::Deserialize;
 
-const PR_FETCH_CONCURRENCY: usize = 10;
+const PR_FETCH_CONCURRENCY: usize = 5;
 
 #[derive(Debug, Deserialize)]
 struct PullRequestResponse {
