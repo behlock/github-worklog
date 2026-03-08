@@ -49,11 +49,27 @@ impl RecapGenerator {
         let formatted_date = date.format(&self.date_format).to_string();
         output.push_str(&format!("**{}**\n\n", formatted_date));
 
-        // Add the summarized bullet points
-        output.push_str(summary);
+        // Normalize and add the summarized bullet points
+        output.push_str(&Self::normalize_summary(summary));
         output.push('\n');
 
         output
+    }
+
+    /// Ensure LLM-generated repo headings have backtick-wrapped names
+    fn normalize_summary(summary: &str) -> String {
+        summary
+            .lines()
+            .map(|line| {
+                if line.starts_with("#### ") && !line.contains('`') {
+                    let repo = line.trim_start_matches("#### ").trim();
+                    format!("#### `{}`", repo)
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     fn format_activity(&self, activity: &Activity) -> String {
@@ -129,5 +145,22 @@ mod tests {
         assert!(result.contains("**08/01/26**"));
         assert!(result.contains("#### `owner/repo`"));
         assert!(result.contains("Fix bug in auth (`PR #42`: Auth improvements)"));
+    }
+
+    #[test]
+    fn test_normalize_summary_adds_backticks() {
+        let input = "#### owner/repo\n- Did something\n#### org/lib\n- Fixed bug";
+        let result = RecapGenerator::normalize_summary(input);
+        assert!(result.contains("#### `owner/repo`"));
+        assert!(result.contains("#### `org/lib`"));
+        assert!(result.contains("- Did something"));
+    }
+
+    #[test]
+    fn test_normalize_summary_preserves_existing_backticks() {
+        let input = "#### `owner/repo`\n- Did something";
+        let result = RecapGenerator::normalize_summary(input);
+        assert!(result.contains("#### `owner/repo`"));
+        assert!(!result.contains("#### ``"));
     }
 }
