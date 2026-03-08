@@ -198,9 +198,13 @@ fn build_prompt(activities: &[Activity]) -> String {
         .collect();
 
     format!(
-        "Summarize this developer's daily GitHub activity into 2-5 bullet points.\n\
-         Focus on WHAT was accomplished, group related work, use action verbs.\n\
-         Return ONLY bullet points starting with \"- \".\n\n{}",
+        "Summarize this developer's daily GitHub activity.\n\
+         Group the output by repository. For each repository, output a heading like:\n\
+         #### `owner/repo`\n\
+         Then list 1-3 bullet points starting with \"- \" summarizing work in that repo.\n\
+         Use backticks around repository names, PR references (e.g. `PR #42`), and other code-related terms.\n\
+         Focus on WHAT was accomplished, use action verbs.\n\
+         Return ONLY the repository headings and bullet points, nothing else.\n\n{}",
         commits
     )
 }

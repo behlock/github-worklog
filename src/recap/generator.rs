@@ -30,7 +30,7 @@ impl RecapGenerator {
         let grouped = self.group_by_repo(&activities);
 
         for (repo_name, repo_activities) in grouped {
-            output.push_str(&format!("\n### {}\n", repo_name));
+            output.push_str(&format!("\n#### `{}`\n", repo_name));
 
             for activity in repo_activities {
                 let bullet = self.format_activity(activity);
@@ -62,7 +62,7 @@ impl RecapGenerator {
 
         match &activity.associated_pr {
             Some(pr) => {
-                format!("{} (PR #{}: {})", commit_msg, pr.number, pr.title)
+                format!("{} (`PR #{}`: {})", commit_msg, pr.number, pr.title)
             }
             None => commit_msg.to_string(),
         }
@@ -127,7 +127,7 @@ mod tests {
         let result = generator.generate_markdown(date, activities);
 
         assert!(result.contains("**08/01/26**"));
-        assert!(result.contains("### owner/repo"));
-        assert!(result.contains("Fix bug in auth (PR #42: Auth improvements)"));
+        assert!(result.contains("#### `owner/repo`"));
+        assert!(result.contains("Fix bug in auth (`PR #42`: Auth improvements)"));
     }
 }
