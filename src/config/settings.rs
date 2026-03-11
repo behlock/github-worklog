@@ -123,26 +123,26 @@ impl Settings {
     }
 
     pub fn with_overrides(mut self, cli: &Cli) -> Self {
-        if let Some(t) = cli.token.clone() {
-            self.github_token = t;
+        if let Some(ref t) = cli.token {
+            self.github_token = t.clone();
         }
-        if let Some(u) = cli.username.clone() {
-            self.github_username = u;
+        if let Some(ref u) = cli.username {
+            self.github_username = u.clone();
         }
-        if let Some(o) = cli.output.clone() {
-            self.output_file = o;
+        if let Some(ref o) = cli.output {
+            self.output_file = o.clone();
         }
         if let Some(p) = cli.provider {
             self.summarizer_provider = p;
         }
-        if let Some(m) = cli.ollama_model.clone() {
-            self.ollama_model = m;
+        if let Some(ref m) = cli.ollama_model {
+            self.ollama_model = m.clone();
         }
-        if let Some(m) = cli.openai_model.clone() {
-            self.openai_model = m;
+        if let Some(ref m) = cli.openai_model {
+            self.openai_model = m.clone();
         }
-        if let Some(m) = cli.gemini_model.clone() {
-            self.gemini_model = m;
+        if let Some(ref m) = cli.gemini_model {
+            self.gemini_model = m.clone();
         }
         self
     }

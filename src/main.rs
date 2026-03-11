@@ -179,7 +179,8 @@ async fn run_generate(
 
 fn print_masked_key(name: &str, key: &Option<String>) {
     match key {
-        Some(k) => println!("  {}: {}****", name, &k[..8.min(k.len())]),
+        Some(k) if k.len() >= 8 => println!("  {}: {}****", name, &k[..8]),
+        Some(_) => println!("  {}: ****", name),
         None => println!("  {}: (not set)", name),
     }
 }
