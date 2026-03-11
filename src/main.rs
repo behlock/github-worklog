@@ -68,13 +68,7 @@ async fn run() -> github_worklog::Result<()> {
 
 fn load_settings(cli: &Cli) -> github_worklog::Result<Settings> {
     let settings = Settings::load()?;
-    Ok(settings.with_overrides(
-        cli.token.clone(),
-        cli.username.clone(),
-        cli.output.clone(),
-        cli.provider,
-        cli.ollama_model.clone(),
-    ))
+    Ok(settings.with_overrides(cli))
 }
 
 fn parse_date(date: Option<String>) -> github_worklog::Result<NaiveDate> {
@@ -129,17 +123,7 @@ async fn run_generate(
         "Generating markdown (summarizer: {:?})",
         settings.summarizer_provider
     );
-    let markdown = match summarize(
-        &activities,
-        settings.summarizer_provider,
-        settings.anthropic_api_key.as_deref(),
-        &settings.ollama_url,
-        &settings.ollama_model,
-        &settings.claude_model,
-        settings.claude_max_tokens,
-    )
-    .await
-    {
+    let markdown = match summarize(&activities, &settings).await {
         Some(summary) => {
             debug!("Got AI summary, generating markdown with summary");
             generator.generate_markdown_with_summary(date, &summary)
@@ -193,6 +177,13 @@ async fn run_generate(
     Ok(())
 }
 
+fn print_masked_key(name: &str, key: &Option<String>) {
+    match key {
+        Some(k) => println!("  {}: {}****", name, &k[..8.min(k.len())]),
+        None => println!("  {}: (not set)", name),
+    }
+}
+
 fn show_config(cli: &Cli) {
     // Load .env file first
     dotenvy::dotenv().ok();
@@ -202,13 +193,7 @@ fn show_config(cli: &Cli) {
 
     match Settings::load() {
         Ok(settings) => {
-            let settings = settings.with_overrides(
-                cli.token.clone(),
-                cli.username.clone(),
-                cli.output.clone(),
-                cli.provider,
-                cli.ollama_model.clone(),
-            );
+            let settings = settings.with_overrides(cli);
             println!(
                 "  GITHUB_TOKEN: {}****",
                 &settings.github_token[..8.min(settings.github_token.len())]
@@ -218,14 +203,15 @@ fn show_config(cli: &Cli) {
             println!("  DATE_FORMAT: {}", settings.date_format);
 
             println!("  SUMMARIZER_PROVIDER: {}", settings.summarizer_provider);
-            match &settings.anthropic_api_key {
-                Some(key) => println!("  ANTHROPIC_API_KEY: {}****", &key[..8.min(key.len())]),
-                None => println!("  ANTHROPIC_API_KEY: (not set)"),
-            }
+            print_masked_key("ANTHROPIC_API_KEY", &settings.anthropic_api_key);
             println!("  OLLAMA_URL: {}", settings.ollama_url);
             println!("  OLLAMA_MODEL: {}", settings.ollama_model);
             println!("  CLAUDE_MODEL: {}", settings.claude_model);
-            println!("  CLAUDE_MAX_TOKENS: {}", settings.claude_max_tokens);
+            println!("  MAX_TOKENS: {}", settings.max_tokens);
+            print_masked_key("OPENAI_API_KEY", &settings.openai_api_key);
+            println!("  OPENAI_MODEL: {}", settings.openai_model);
+            print_masked_key("GEMINI_API_KEY", &settings.gemini_api_key);
+            println!("  GEMINI_MODEL: {}", settings.gemini_model);
         }
         Err(e) => {
             println!("  Error loading settings: {}", e);
@@ -249,35 +235,25 @@ fn show_config(cli: &Cli) {
     println!("  --output: {:?}", cli.output);
     println!("  --provider: {:?}", cli.provider);
     println!("  --ollama-model: {:?}", cli.ollama_model);
+    println!("  --openai-model: {:?}", cli.openai_model);
+    println!("  --gemini-model: {:?}", cli.gemini_model);
 }
 
 fn show_init_instructions() {
-    println!("GitHub Daily Recap - Setup Instructions\n");
-    println!("1. Create a GitHub Personal Access Token:");
-    println!("   https://github.com/settings/tokens\n");
-    println!("   Required scopes: repo (for private repos) or public_repo (for public only)\n");
-    println!("2. Set the following environment variables:\n");
-    println!("   # Required");
-    println!("   export GITHUB_TOKEN=\"ghp_your_token_here\"");
-    println!("   export GITHUB_USERNAME=\"your-github-username\"\n");
-    println!("   # Optional - Output");
-    println!("   export OUTPUT_FILE=\"./worklog.md\"");
-    println!("   export DATE_FORMAT=\"%d/%m/%y\"\n");
-    println!("   # Optional - Summarization (choose one provider)");
-    println!("   export SUMMARIZER_PROVIDER=\"claude\"  # or \"ollama\"");
-    println!("   export ANTHROPIC_API_KEY=\"sk-ant-...\"  # for Claude");
-    println!("   export OLLAMA_URL=\"http://localhost:11434\"  # for Ollama");
-    println!("   export OLLAMA_MODEL=\"llama3.2:3b\"  # for Ollama\n");
-    println!("3. For Ollama (local LLM):");
-    println!("   brew install ollama");
-    println!("   ollama serve");
-    println!("   ollama pull llama3.2:3b\n");
-    println!("4. Add to your shell profile (~/.bashrc, ~/.zshrc, etc.) to persist.\n");
-    println!("5. Usage:");
-    println!("   github-worklog today           # Generate recap for today");
-    println!("   github-worklog today --preview # Preview without saving");
-    println!("   github-worklog today --provider ollama  # Use Ollama");
-    println!("   github-worklog generate --date 2026-01-07");
+    print!(
+        "\
+Setup:
+  1. cp .env.example .env
+  2. Edit .env (GITHUB_TOKEN + GITHUB_USERNAME required)
+     Get a token at: https://github.com/settings/tokens
+
+Usage:
+  github-worklog today              # Generate recap for today
+  github-worklog today --preview    # Preview without saving
+  github-worklog generate -d 2026-01-07
+  github-worklog config             # Show current settings
+"
+    );
 }
 
 fn print_error(e: &RecapError) {
