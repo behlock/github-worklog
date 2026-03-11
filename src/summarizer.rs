@@ -1,3 +1,4 @@
+use crate::config::Settings;
 use crate::github::Activity;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,8 @@ pub enum Provider {
     #[default]
     Claude,
     Ollama,
+    OpenAi,
+    Gemini,
 }
 
 impl std::fmt::Display for Provider {
@@ -19,6 +22,8 @@ impl std::fmt::Display for Provider {
             match self {
                 Provider::Claude => "claude",
                 Provider::Ollama => "ollama",
+                Provider::OpenAi => "openai",
+                Provider::Gemini => "gemini",
             }
         )
     }
@@ -30,21 +35,15 @@ impl std::str::FromStr for Provider {
         match s.to_lowercase().as_str() {
             "claude" => Ok(Provider::Claude),
             "ollama" => Ok(Provider::Ollama),
+            "openai" => Ok(Provider::OpenAi),
+            "gemini" => Ok(Provider::Gemini),
             _ => Err(format!("unknown provider: {}", s)),
         }
     }
 }
 
 /// Summarize activities using the configured provider (with fallback to Claude if Ollama fails)
-pub async fn summarize(
-    activities: &[Activity],
-    provider: Provider,
-    anthropic_key: Option<&str>,
-    ollama_url: &str,
-    ollama_model: &str,
-    claude_model: &str,
-    claude_max_tokens: u32,
-) -> Option<String> {
+pub async fn summarize(activities: &[Activity], settings: &Settings) -> Option<String> {
     if activities.is_empty() {
         return None;
     }
@@ -52,30 +51,84 @@ pub async fn summarize(
     let prompt = build_prompt(activities);
     let client = Client::new();
 
-    match provider {
+    match settings.summarizer_provider {
         Provider::Ollama => {
-            eprintln!("Summarizing with Ollama ({})...", ollama_model);
-            match call_ollama(&client, ollama_url, ollama_model, &prompt).await {
+            eprintln!("Summarizing with Ollama ({})...", settings.ollama_model);
+            match call_ollama(
+                &client,
+                &settings.ollama_url,
+                &settings.ollama_model,
+                &prompt,
+            )
+            .await
+            {
                 Ok(s) => return Some(s),
                 Err(e) => eprintln!("Ollama failed: {}", e),
             }
             // Fallback to Claude
-            if let Some(key) = anthropic_key {
+            if let Some(key) = settings.anthropic_api_key.as_deref() {
                 eprintln!("Falling back to Claude...");
-                call_claude(&client, key, &prompt, claude_model, claude_max_tokens)
-                    .await
-                    .ok()
+                call_claude(
+                    &client,
+                    key,
+                    &prompt,
+                    &settings.claude_model,
+                    settings.max_tokens,
+                )
+                .await
+                .ok()
             } else {
                 None
             }
         }
         Provider::Claude => {
-            if let Some(key) = anthropic_key {
+            if let Some(key) = settings.anthropic_api_key.as_deref() {
                 eprintln!("Summarizing with Claude...");
-                call_claude(&client, key, &prompt, claude_model, claude_max_tokens)
-                    .await
-                    .ok()
+                call_claude(
+                    &client,
+                    key,
+                    &prompt,
+                    &settings.claude_model,
+                    settings.max_tokens,
+                )
+                .await
+                .ok()
             } else {
+                eprintln!("ANTHROPIC_API_KEY not set, skipping summarization");
+                None
+            }
+        }
+        Provider::OpenAi => {
+            if let Some(key) = settings.openai_api_key.as_deref() {
+                eprintln!("Summarizing with OpenAI ({})...", settings.openai_model);
+                call_openai(
+                    &client,
+                    key,
+                    &prompt,
+                    &settings.openai_model,
+                    settings.max_tokens,
+                )
+                .await
+                .ok()
+            } else {
+                eprintln!("OPENAI_API_KEY not set, skipping summarization");
+                None
+            }
+        }
+        Provider::Gemini => {
+            if let Some(key) = settings.gemini_api_key.as_deref() {
+                eprintln!("Summarizing with Gemini ({})...", settings.gemini_model);
+                call_gemini(
+                    &client,
+                    key,
+                    &prompt,
+                    &settings.gemini_model,
+                    settings.max_tokens,
+                )
+                .await
+                .ok()
+            } else {
+                eprintln!("GEMINI_API_KEY not set, skipping summarization");
                 None
             }
         }
@@ -180,6 +233,149 @@ async fn call_ollama(
 
     let data: Resp = resp.json().await.map_err(|e| e.to_string())?;
     Ok(data.response.trim().to_string())
+}
+
+async fn call_openai(
+    client: &Client,
+    api_key: &str,
+    prompt: &str,
+    model: &str,
+    max_tokens: u32,
+) -> Result<String, String> {
+    #[derive(Serialize)]
+    struct Req<'a> {
+        model: &'a str,
+        #[serde(rename = "max_completion_tokens")]
+        max_tokens: u32,
+        messages: Vec<Msg>,
+    }
+    #[derive(Serialize)]
+    struct Msg {
+        role: &'static str,
+        content: String,
+    }
+    #[derive(Deserialize)]
+    struct Resp {
+        choices: Vec<Choice>,
+    }
+    #[derive(Deserialize)]
+    struct Choice {
+        message: RespMsg,
+    }
+    #[derive(Deserialize)]
+    struct RespMsg {
+        content: String,
+    }
+
+    let resp = client
+        .post("https://api.openai.com/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .timeout(Duration::from_secs(30))
+        .json(&Req {
+            model,
+            max_tokens,
+            messages: vec![Msg {
+                role: "user",
+                content: prompt.to_string(),
+            }],
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("OpenAI API error {}: {}", status, body));
+    }
+
+    let data: Resp = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(data
+        .choices
+        .first()
+        .map(|c| c.message.content.clone())
+        .unwrap_or_default())
+}
+
+async fn call_gemini(
+    client: &Client,
+    api_key: &str,
+    prompt: &str,
+    model: &str,
+    max_tokens: u32,
+) -> Result<String, String> {
+    #[derive(Serialize)]
+    struct Req {
+        contents: Vec<Content>,
+        #[serde(rename = "generationConfig")]
+        generation_config: GenConfig,
+    }
+    #[derive(Serialize)]
+    struct Content {
+        parts: Vec<Part>,
+    }
+    #[derive(Serialize)]
+    struct Part {
+        text: String,
+    }
+    #[derive(Serialize)]
+    struct GenConfig {
+        #[serde(rename = "maxOutputTokens")]
+        max_output_tokens: u32,
+    }
+    #[derive(Deserialize)]
+    struct Resp {
+        candidates: Vec<Candidate>,
+    }
+    #[derive(Deserialize)]
+    struct Candidate {
+        content: RespContent,
+    }
+    #[derive(Deserialize)]
+    struct RespContent {
+        parts: Vec<RespPart>,
+    }
+    #[derive(Deserialize)]
+    struct RespPart {
+        text: String,
+    }
+
+    let url = format!(
+        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
+        model
+    );
+
+    let resp = client
+        .post(&url)
+        .header("x-goog-api-key", api_key)
+        .timeout(Duration::from_secs(30))
+        .json(&Req {
+            contents: vec![Content {
+                parts: vec![Part {
+                    text: prompt.to_string(),
+                }],
+            }],
+            generation_config: GenConfig {
+                max_output_tokens: max_tokens,
+            },
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("Gemini API error {}: {}", status, body));
+    }
+
+    let data: Resp = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(data
+        .candidates
+        .first()
+        .and_then(|c| c.content.parts.first())
+        .map(|p| p.text.clone())
+        .unwrap_or_default())
 }
 
 fn build_prompt(activities: &[Activity]) -> String {

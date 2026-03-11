@@ -1,3 +1,4 @@
+use crate::cli::Cli;
 use crate::error::{RecapError, Result};
 use crate::summarizer::Provider;
 use directories::ProjectDirs;
@@ -17,7 +18,11 @@ pub struct Settings {
     pub ollama_model: String,
     pub ollama_url: String,
     pub claude_model: String,
-    pub claude_max_tokens: u32,
+    pub max_tokens: u32,
+    pub openai_api_key: Option<String>,
+    pub openai_model: String,
+    pub gemini_api_key: Option<String>,
+    pub gemini_model: String,
 }
 
 fn default_date_format() -> String {
@@ -36,7 +41,15 @@ fn default_claude_model() -> String {
     "claude-sonnet-4-6".to_string()
 }
 
-const DEFAULT_CLAUDE_MAX_TOKENS: u32 = 500;
+fn default_openai_model() -> String {
+    "gpt-4.1-mini".to_string()
+}
+
+fn default_gemini_model() -> String {
+    "gemini-2.5-flash".to_string()
+}
+
+const DEFAULT_MAX_TOKENS: u32 = 500;
 
 impl Settings {
     pub fn load() -> Result<Self> {
@@ -69,20 +82,26 @@ impl Settings {
 
         let claude_model = std::env::var("CLAUDE_MODEL").unwrap_or_else(|_| default_claude_model());
 
-        let claude_max_tokens = match std::env::var("CLAUDE_MAX_TOKENS") {
-            Ok(s) => match s.parse() {
-                Ok(v) => v,
-                Err(_) => {
-                    tracing::warn!(
-                        "Invalid CLAUDE_MAX_TOKENS value '{}', using default {}",
-                        s,
-                        DEFAULT_CLAUDE_MAX_TOKENS
-                    );
-                    DEFAULT_CLAUDE_MAX_TOKENS
-                }
-            },
-            Err(_) => DEFAULT_CLAUDE_MAX_TOKENS,
-        };
+        let max_tokens =
+            match std::env::var("MAX_TOKENS").or_else(|_| std::env::var("CLAUDE_MAX_TOKENS")) {
+                Ok(s) => match s.parse() {
+                    Ok(v) => v,
+                    Err(_) => {
+                        tracing::warn!(
+                            "Invalid MAX_TOKENS value '{}', using default {}",
+                            s,
+                            DEFAULT_MAX_TOKENS
+                        );
+                        DEFAULT_MAX_TOKENS
+                    }
+                },
+                Err(_) => DEFAULT_MAX_TOKENS,
+            };
+
+        let openai_api_key = std::env::var("OPENAI_API_KEY").ok();
+        let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| default_openai_model());
+        let gemini_api_key = std::env::var("GEMINI_API_KEY").ok();
+        let gemini_model = std::env::var("GEMINI_MODEL").unwrap_or_else(|_| default_gemini_model());
 
         Ok(Settings {
             github_token,
@@ -95,32 +114,35 @@ impl Settings {
             ollama_model,
             ollama_url,
             claude_model,
-            claude_max_tokens,
+            max_tokens,
+            openai_api_key,
+            openai_model,
+            gemini_api_key,
+            gemini_model,
         })
     }
 
-    pub fn with_overrides(
-        mut self,
-        token: Option<String>,
-        username: Option<String>,
-        output: Option<PathBuf>,
-        provider: Option<Provider>,
-        ollama_model: Option<String>,
-    ) -> Self {
-        if let Some(t) = token {
-            self.github_token = t;
+    pub fn with_overrides(mut self, cli: &Cli) -> Self {
+        if let Some(ref t) = cli.token {
+            self.github_token = t.clone();
         }
-        if let Some(u) = username {
-            self.github_username = u;
+        if let Some(ref u) = cli.username {
+            self.github_username = u.clone();
         }
-        if let Some(o) = output {
-            self.output_file = o;
+        if let Some(ref o) = cli.output {
+            self.output_file = o.clone();
         }
-        if let Some(p) = provider {
+        if let Some(p) = cli.provider {
             self.summarizer_provider = p;
         }
-        if let Some(m) = ollama_model {
-            self.ollama_model = m;
+        if let Some(ref m) = cli.ollama_model {
+            self.ollama_model = m.clone();
+        }
+        if let Some(ref m) = cli.openai_model {
+            self.openai_model = m.clone();
+        }
+        if let Some(ref m) = cli.gemini_model {
+            self.gemini_model = m.clone();
         }
         self
     }
@@ -148,6 +170,8 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::Cli;
+    use clap::Parser;
 
     #[test]
     fn expand_path_bare_tilde() {
@@ -191,16 +215,25 @@ mod tests {
             ollama_model: default_ollama_model(),
             ollama_url: default_ollama_url(),
             claude_model: default_claude_model(),
-            claude_max_tokens: DEFAULT_CLAUDE_MAX_TOKENS,
+            max_tokens: DEFAULT_MAX_TOKENS,
+            openai_api_key: None,
+            openai_model: default_openai_model(),
+            gemini_api_key: None,
+            gemini_model: default_gemini_model(),
         };
 
-        let updated = settings.with_overrides(
-            Some("new-token".to_string()),
-            Some("new-user".to_string()),
-            None,
-            Some(Provider::Ollama),
-            None,
-        );
+        let cli = Cli::parse_from([
+            "test",
+            "--token",
+            "new-token",
+            "--username",
+            "new-user",
+            "--provider",
+            "ollama",
+            "config",
+        ]);
+
+        let updated = settings.with_overrides(&cli);
 
         assert_eq!(updated.github_token, "new-token");
         assert_eq!(updated.github_username, "new-user");
@@ -211,6 +244,6 @@ mod tests {
     #[test]
     fn default_claude_settings() {
         assert_eq!(default_claude_model(), "claude-sonnet-4-6");
-        assert_eq!(DEFAULT_CLAUDE_MAX_TOKENS, 500);
+        assert_eq!(DEFAULT_MAX_TOKENS, 500);
     }
 }

@@ -22,13 +22,21 @@ pub struct Cli {
     #[arg(long, short = 'o', env = "OUTPUT_FILE", global = true)]
     pub output: Option<PathBuf>,
 
-    /// Summarizer provider (claude or ollama)
+    /// Summarizer provider (claude, openai, gemini, or ollama)
     #[arg(long, short = 'p', env = "SUMMARIZER_PROVIDER", global = true)]
     pub provider: Option<Provider>,
 
     /// Ollama model to use (e.g., llama3.2:3b, phi3:mini, mistral:7b)
     #[arg(long, env = "OLLAMA_MODEL", global = true)]
     pub ollama_model: Option<String>,
+
+    /// OpenAI model to use (e.g., gpt-4.1-mini, gpt-4.1-nano)
+    #[arg(long, env = "OPENAI_MODEL", global = true)]
+    pub openai_model: Option<String>,
+
+    /// Gemini model to use (e.g., gemini-2.5-flash, gemini-2.5-pro)
+    #[arg(long, env = "GEMINI_MODEL", global = true)]
+    pub gemini_model: Option<String>,
 
     /// Enable verbose logging
     #[arg(long, short = 'v', global = true)]
