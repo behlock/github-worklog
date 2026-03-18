@@ -3,6 +3,33 @@ use std::fs;
 use std::path::Path;
 use tracing::{debug, info, warn};
 
+const FILE_WRITE_MAX_RETRIES: u32 = 5;
+
+fn write_with_retry(path: &Path, content: &str) -> std::io::Result<()> {
+    let mut last_err = None;
+    for attempt in 0..=FILE_WRITE_MAX_RETRIES {
+        match fs::write(path, content) {
+            Ok(()) => return Ok(()),
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    && attempt < FILE_WRITE_MAX_RETRIES =>
+            {
+                warn!(
+                    "File write failed with EAGAIN (attempt {}/{}), retrying: {}",
+                    attempt + 1,
+                    FILE_WRITE_MAX_RETRIES,
+                    path.display()
+                );
+                std::thread::sleep(std::time::Duration::from_millis(500 * (attempt as u64 + 1)));
+                last_err = Some(e);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(last_err
+        .unwrap_or_else(|| std::io::Error::other("max retries exhausted")))
+}
+
 /// Result of attempting to write a recap
 #[derive(Debug)]
 pub enum WriteResult {
@@ -86,9 +113,11 @@ pub fn prepend_to_file(
             let separator = if cleaned.is_empty() { "" } else { "\n---\n\n" };
             let new_content = format!("{}{}{}", content, separator, cleaned);
 
-            fs::write(&expanded_path, new_content).map_err(|source| RecapError::FileOp {
-                path: expanded_path.display().to_string(),
-                source,
+            write_with_retry(&expanded_path, &new_content).map_err(|source| {
+                RecapError::FileOp {
+                    path: expanded_path.display().to_string(),
+                    source,
+                }
             })?;
 
             info!(
@@ -115,7 +144,7 @@ pub fn prepend_to_file(
     let new_content = format!("{}{}{}", content, separator, existing);
 
     // Write back
-    fs::write(&expanded_path, new_content).map_err(|source| RecapError::FileOp {
+    write_with_retry(&expanded_path, &new_content).map_err(|source| RecapError::FileOp {
         path: expanded_path.display().to_string(),
         source,
     })?;
@@ -193,7 +222,7 @@ pub fn append_to_file(path: &Path, content: &str) -> Result<()> {
     let new_content = format!("{}{}{}", content, separator, existing);
 
     // Write back
-    fs::write(&expanded_path, new_content).map_err(|source| RecapError::FileOp {
+    write_with_retry(&expanded_path, &new_content).map_err(|source| RecapError::FileOp {
         path: expanded_path.display().to_string(),
         source,
     })?;
