@@ -26,8 +26,7 @@ fn write_with_retry(path: &Path, content: &str) -> std::io::Result<()> {
             Err(e) => return Err(e),
         }
     }
-    Err(last_err
-        .unwrap_or_else(|| std::io::Error::other("max retries exhausted")))
+    Err(last_err.unwrap_or_else(|| std::io::Error::other("max retries exhausted")))
 }
 
 /// Result of attempting to write a recap
