@@ -1,5 +1,6 @@
 /target
 .claude/
+.DS_Store
 
 # Environment variables
 .env
