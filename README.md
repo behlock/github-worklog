@@ -18,7 +18,7 @@ A CLI tool that fetches your daily GitHub commits, uses an LLM to summarize them
 
 - Rust (install via [rustup](https://rustup.rs/))
 - [just](https://github.com/casey/just) command runner (`brew install just` or `cargo install just`)
-- LLM access: Claude, OpenAI, Gemini, or Ollama
+- An LLM: an API key for Claude, OpenAI or Gemini, or [Ollama](https://ollama.com) for local models (`brew install --cask ollama`)
 
 ### Setup
 
@@ -64,19 +64,14 @@ Every flag can also be set as an environment variable (see `.env.example`).
 
 ## Local Summaries with Ollama
 
-Runs for free and offline with [Ollama](https://ollama.com):
-
-```bash
-brew install --cask ollama      # or download the app from ollama.com
-just ollama-pull                # Pulls OLLAMA_MODEL from .env
-```
-
-Then in `.env`:
+Runs for free and offline. In `.env`:
 
 ```bash
 SUMMARIZER_PROVIDER=ollama
 OLLAMA_MODEL=gemma4:e4b
 ```
+
+Then `just ollama-pull` to download the model.
 
 The scheduled job starts Ollama if it is not already running and stops it afterwards.
 
