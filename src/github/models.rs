@@ -1,13 +1,18 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepoInfo {
     pub owner: String,
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl RepoInfo {
+    pub fn full_name(&self) -> String {
+        format!("{}/{}", self.owner, self.name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommitInfo {
     pub sha: String,
     pub message: String,
@@ -17,7 +22,14 @@ pub struct CommitInfo {
     pub html_url: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl CommitInfo {
+    /// First line of the commit message, trimmed.
+    pub fn subject(&self) -> &str {
+        self.message.lines().next().unwrap_or("").trim()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PullRequestInfo {
     pub number: u64,
     pub title: String,
@@ -25,7 +37,7 @@ pub struct PullRequestInfo {
     pub html_url: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Activity {
     pub commit: CommitInfo,
     pub associated_pr: Option<PullRequestInfo>,

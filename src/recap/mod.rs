@@ -1,7 +1,5 @@
 pub mod file_ops;
 mod generator;
 
-#[allow(deprecated)]
-pub use file_ops::append_to_file;
-pub use file_ops::{prepend_to_file, WriteResult};
+pub use file_ops::{HeaderMatcher, WriteResult, prepend_to_file};
 pub use generator::RecapGenerator;

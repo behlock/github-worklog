@@ -8,7 +8,7 @@ A CLI tool that fetches your daily GitHub commits, uses an LLM to summarize them
 ## Features
 
 - Fetches all commits across all your repositories for a given day
-- Summarizes commits using cloud or local models
+- Summarizes commits using cloud or local models (Claude, OpenAI, Gemini, or Ollama)
 - Maintains a single markdown file with all daily recaps
 - Supports automated daily runs via macOS launchd
 
@@ -18,7 +18,7 @@ A CLI tool that fetches your daily GitHub commits, uses an LLM to summarize them
 
 - Rust (install via [rustup](https://rustup.rs/))
 - [just](https://github.com/casey/just) command runner (`brew install just` or `cargo install just`)
-- LLM access: Claude, OpenAI, Gemini, or Ollama
+- An LLM: an API key for Claude, OpenAI or Gemini, or [Ollama](https://ollama.com) for local models (`brew install --cask ollama`)
 
 ### Setup
 
@@ -38,6 +38,12 @@ just week                 # Generate for the past 7 days
 just config               # View configuration
 ```
 
+Existing entries are never overwritten. To regenerate a day, pass `--force`:
+
+```bash
+github-worklog generate --date 2026-03-18 --force
+```
+
 ### CLI Flags
 
 ```bash
@@ -48,18 +54,34 @@ github-worklog today --provider gemini
 github-worklog today --provider ollama
 
 # Use a different model
+github-worklog today --provider claude --claude-model claude-sonnet-5
 github-worklog today --provider ollama --ollama-model llama3.2:3b
 github-worklog today --provider openai --openai-model gpt-4.1-nano
 github-worklog today --provider gemini --gemini-model gemini-2.5-pro
 ```
 
+Every flag can also be set as an environment variable (see `.env.example`).
+
+## Local Summaries with Ollama
+
+Runs for free and offline. In `.env`:
+
+```bash
+SUMMARIZER_PROVIDER=ollama
+OLLAMA_MODEL=gemma4:e4b
+```
+
+Then `just ollama-pull` to download the model.
+
+The scheduled job starts Ollama if it is not already running and stops it afterwards.
+
 ## Automated Daily Runs (macOS)
 
 ```bash
-just install-scheduler    # Install launchd job (runs daily at midnight)
+just install-scheduler    # Install launchd job (runs at midnight for the previous day)
 just scheduler-status     # Check if scheduler is running
 just logs                 # View scheduler logs
-just cron                 # Run manually (generate + commit + push)
+just cron                 # Run the scheduled job by hand
 just uninstall-scheduler  # Remove the scheduler
 ```
 

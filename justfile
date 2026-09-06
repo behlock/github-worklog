@@ -43,19 +43,26 @@ install-scheduler:
 
 # Uninstall the daily scheduler
 uninstall-scheduler:
-    launchctl unload ~/Library/LaunchAgents/com.github-worklog.plist
+    launchctl bootout gui/$(id -u)/com.github-worklog 2>/dev/null || true
+    rm -f ~/Library/LaunchAgents/com.github-worklog.plist
 
 # Check if scheduler is running
 scheduler-status:
-    @launchctl list | grep worklog || echo "Scheduler not running"
+    @launchctl print gui/$(id -u)/com.github-worklog >/dev/null 2>&1 && echo "Scheduler loaded" || echo "Scheduler not running"
 
 # View scheduler logs
 logs:
     @cat ~/.local/log/worklog-stdout.log 2>/dev/null || echo "No logs found"
 
-# Run the cron script manually (generates + commits + pushes)
-cron:
-    ./scripts/worklog-cron.sh
+# Run the scheduled job manually (generates yesterday's recap with retries)
+cron *args:
+    ./scripts/worklog-cron.sh {{ args }}
+
+# Pull the configured Ollama model (reads OLLAMA_MODEL from .env, default gemma4:e4b)
+ollama-pull:
+    #!/usr/bin/env bash
+    set -a; [[ -f .env ]] && source .env; set +a
+    ollama pull "${OLLAMA_MODEL:-gemma4:e4b}"
 
 # Clean build artifacts
 clean:
@@ -63,7 +70,7 @@ clean:
 
 # Run clippy linter
 lint:
-    cargo clippy -- -D warnings
+    cargo clippy --all-targets -- -D warnings
 
 # Format code
 fmt:
